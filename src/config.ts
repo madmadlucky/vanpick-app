@@ -11,4 +11,12 @@ export const WEBVIEW_FLOW_HOSTS = new Set([
   'api.tosspayments.com',
 ]);
 
+export const EXTERNAL_APP_SCHEMES = new Set([
+  'intent',
+  'kakaokompassauth',
+  'kakaolink',
+  'kakaoplus',
+  'kakaotalk',
+]);
+
 export const APP_SCHEME = 'vanpick';

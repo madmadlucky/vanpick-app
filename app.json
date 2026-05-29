@@ -13,7 +13,13 @@
       "infoPlist": {
         "NSCameraUsageDescription": "사업자등록증과 차량 이미지를 촬영해 업로드할 때 카메라 접근이 필요합니다.",
         "NSPhotoLibraryUsageDescription": "사업자등록증과 차량 이미지를 선택해 업로드할 때 사진 접근이 필요합니다.",
-        "NSPhotoLibraryAddUsageDescription": "업로드에 필요한 이미지를 사진 보관함에 저장할 때 사용됩니다."
+        "NSPhotoLibraryAddUsageDescription": "업로드에 필요한 이미지를 사진 보관함에 저장할 때 사용됩니다.",
+        "LSApplicationQueriesSchemes": [
+          "kakaokompassauth",
+          "kakaolink",
+          "kakaoplus",
+          "kakaotalk"
+        ]
       }
     },
     "android": {

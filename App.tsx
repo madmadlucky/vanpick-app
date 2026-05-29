@@ -13,7 +13,13 @@ import {
 } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
-import { APP_SCHEME, INTERNAL_WEBVIEW_HOSTS, VANPICK_WEB_URL, WEBVIEW_FLOW_HOSTS } from './src/config';
+import {
+  APP_SCHEME,
+  EXTERNAL_APP_SCHEMES,
+  INTERNAL_WEBVIEW_HOSTS,
+  VANPICK_WEB_URL,
+  WEBVIEW_FLOW_HOSTS,
+} from './src/config';
 
 type WebViewRef = ElementRef<typeof WebView>;
 
@@ -37,19 +43,50 @@ function getUrlDecision(url: string) {
 
   if (scheme === 'http' || scheme === 'https') {
     return {
-      shouldOpenExternally: !(isVanPickHost || isKnownFlowHost),
+      action: isVanPickHost || isKnownFlowHost ? ('allow' as const) : ('external-browser' as const),
     };
   }
 
   if (scheme === APP_SCHEME || scheme === 'about') {
     return {
-      shouldOpenExternally: false,
+      action: 'allow' as const,
+    };
+  }
+
+  if (EXTERNAL_APP_SCHEMES.has(scheme) || (scheme.startsWith('kakao') && scheme !== APP_SCHEME)) {
+    return {
+      action: 'external-app' as const,
     };
   }
 
   return {
-    shouldOpenExternally: true,
+    action: 'external-browser' as const,
   };
+}
+
+function getIntentFallbackUrl(url: string) {
+  const fallbackMatch = /(?:^|;)S\.browser_fallback_url=([^;]+)/.exec(url);
+
+  if (!fallbackMatch?.[1]) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(fallbackMatch[1]);
+  } catch {
+    return fallbackMatch[1];
+  }
+}
+
+function getNavigationLogLabel(url: string) {
+  const { scheme, hostname } = parseUrlParts(url);
+
+  if (scheme === 'http' || scheme === 'https') {
+    const pathMatch = /^[a-z][a-z0-9+.-]*:\/\/[^/?#:]*(\/[^?#]*)?/i.exec(url.trim());
+    return `${scheme}://${hostname}${pathMatch?.[1] ?? ''}`;
+  }
+
+  return `${scheme || 'unknown'}://`;
 }
 
 export default function App() {
@@ -80,17 +117,31 @@ export default function App() {
 
   const handleNavigationStateChange = useCallback((navigationState: WebViewNavigation) => {
     setCanGoBack(navigationState.canGoBack);
+    console.log('[VanPick WebView] navigation:', getNavigationLogLabel(navigationState.url));
   }, []);
 
   const handleShouldStartLoad = useCallback((request: WebViewNavigation) => {
     const decision = getUrlDecision(request.url);
 
-    if (!decision.shouldOpenExternally) {
+    console.log('[VanPick WebView] request:', decision.action, getNavigationLogLabel(request.url));
+
+    if (decision.action === 'allow') {
       return true;
     }
 
     void Linking.openURL(request.url).catch(() => {
-      setErrorMessage('외부 브라우저로 링크를 열 수 없습니다.');
+      const fallbackUrl = getIntentFallbackUrl(request.url);
+
+      if (fallbackUrl) {
+        void Linking.openURL(fallbackUrl).catch(() => {
+          setErrorMessage('외부 브라우저로 링크를 열 수 없습니다.');
+        });
+        return;
+      }
+
+      if (decision.action === 'external-browser') {
+        setErrorMessage('외부 브라우저로 링크를 열 수 없습니다.');
+      }
     });
 
     return false;
@@ -111,7 +162,7 @@ export default function App() {
           ref={webViewRef}
           source={source}
           style={styles.webView}
-          originWhitelist={['http://*', 'https://*', `${APP_SCHEME}://*`, 'intent://*']}
+          originWhitelist={['*']}
           allowsBackForwardNavigationGestures
           allowsInlineMediaPlayback
           javaScriptEnabled
@@ -193,7 +244,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7FAF8',
   },
   centerScreen: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: '#F7FAF8',
     alignItems: 'center',
     justifyContent: 'center',

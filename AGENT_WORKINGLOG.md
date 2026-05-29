@@ -95,3 +95,144 @@
 
 - Physical iPhone/Android Expo Go QR execution was not directly confirmed in this environment.
 - Tunnel mode still depends on ngrok/network availability. If `remote gone away` persists, retry later or use LAN/local connection where possible.
+
+### Expo SDK 55 Downgrade For Expo Go Compatibility
+
+- User reported iPhone Expo Go compatibility messages:
+  - `project is incompatible with this version of Expo Go`
+  - `the project you requested requires a newer version of Expo Go`
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Kept WebView production URL unchanged:
+  - `https://vanpick.app`
+- Downgraded the project from Expo SDK 56 to SDK 55 for safer physical-device Expo Go testing.
+- Updated SDK-compatible package versions:
+  - `expo` from `~56.0.6` to `~55.0.0` (`55.0.26` installed)
+  - `expo-linking` to `~55.0.15`
+  - `expo-status-bar` to `~55.0.6`
+  - `react` to `19.2.0`
+  - `react-native` to `0.83.6`
+  - `react-native-webview` to `13.16.0`
+  - `typescript` to `~5.9.2` (`5.9.3` installed)
+- Removed `@expo/ngrok` because the current requested test path is `--lan`, not `--tunnel`.
+- Regenerated `package-lock.json` through npm install / Expo install / npm dedupe.
+- Added minimal `metro.config.js` that extends Expo's default Metro config:
+  - `const { getDefaultConfig } = require('expo/metro-config')`
+  - `module.exports = getDefaultConfig(__dirname)`
+- Reason for adding `metro.config.js`:
+  - SDK 55 `expo-doctor` reported a Metro config check failure even though no root Metro config existed.
+  - Adding the explicit Expo default config made the check pass.
+
+### SDK 55 Verification
+
+- `npm run typecheck` passed.
+- `npx expo-doctor` passed:
+  - `19/19 checks passed. No issues detected!`
+- `npx expo config --type public` passed and reported:
+  - `sdkVersion: 55.0.0`
+- `npx expo start -c --lan` started Metro successfully after clearing an old Expo process that was holding port `8081`.
+- Metro status check passed:
+  - `http://localhost:8081/status` returned `packager-status:running`
+- Expo manifest check passed:
+  - runtime version `exposdk:55.0.0`
+  - app name `VanPick`
+  - scheme `vanpick`
+  - URL config still points to deployed production service through app code.
+- iOS JS bundle request returned HTTP `200`.
+- Android JS bundle request returned HTTP `200`.
+- Verification server was stopped after checks.
+
+### Remaining Unverified Items After SDK 55 Downgrade
+
+- Physical iPhone/Android Expo Go QR launch was not directly confirmed in this environment.
+- User should run `npx expo start -c --lan` locally and scan the QR with Expo Go on the same network.
+
+### Expo SDK 54 Downgrade For iPhone Expo Go Compatibility
+
+- User reported that SDK 55 still produced iPhone Expo Go compatibility messages:
+  - `Project is incompatible with this version of Expo Go`
+  - `The project you requested requires a newer version of Expo Go`
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Kept WebView production URL unchanged:
+  - `https://vanpick.app`
+- Checked Expo SDK 54 documentation before changing packages.
+- Downgraded the project from Expo SDK 55 to SDK 54 for physical iPhone Expo Go testing.
+- Updated SDK-compatible package versions:
+  - `expo` from `~55.0.0` to `~54.0.0` (`54.0.35` installed)
+  - `expo-linking` to `~8.0.12`
+  - `expo-status-bar` to `~3.0.9`
+  - `react` to `19.1.0`
+  - `react-native` to `0.81.5`
+  - `react-native-webview` to `13.15.0`
+  - `@types/react` to `~19.1.10` (`19.1.17` installed)
+  - `typescript` kept at SDK-compatible `~5.9.2` (`5.9.3` installed)
+- Regenerated `package-lock.json` through npm install / Expo install / npm dedupe.
+- Kept the minimal `metro.config.js` that extends Expo's default Metro config. It remains valid for SDK 54 and does not change app behavior.
+- Made one TypeScript-only compatibility adjustment in `App.tsx`:
+  - replaced object spread of `StyleSheet.absoluteFill` with explicit absolute-position style fields
+  - WebView behavior and URL handling were otherwise preserved.
+
+### SDK 54 Verification
+
+- `npm run typecheck` passed.
+- `npx expo-doctor` passed:
+  - `18/18 checks passed. No issues detected!`
+- `npx expo config --type public` passed and reported:
+  - `sdkVersion: 54.0.0`
+- `npx expo start -c --lan` started Metro successfully.
+- Metro status check passed:
+  - `http://localhost:8081/status` returned `packager-status:running`
+- Expo manifest check passed:
+  - runtime version `exposdk:54.0.0`
+  - app name `VanPick`
+  - scheme `vanpick`
+- iOS JS bundle request returned HTTP `200`.
+- Android JS bundle request returned HTTP `200`.
+- Verification server was stopped after checks.
+
+### Remaining Unverified Items After SDK 54 Downgrade
+
+- Physical iPhone/Android Expo Go QR launch was not directly confirmed in this environment.
+- User should run `npx expo start -c --lan` locally and scan the QR with Expo Go on the same network.
+
+### Kakao App Switch Handling In WebView
+
+- User asked to check and minimally improve Kakao login app-switch behavior inside the WebView.
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Kept WebView production URL unchanged:
+  - `https://vanpick.app`
+- Checked the deployed `https://vanpick.app/login` page by HTTP request.
+- Observed:
+  - `/login` redirects to `https://www.vanpick.app/login`
+  - login page renders Kakao login buttons through client-side JS
+  - the visible server-rendered page does not expose the final OAuth URL directly
+- Updated `src/config.ts`:
+  - added explicit external app schemes for Kakao and Android intent handling:
+    - `intent`
+    - `kakaokompassauth`
+    - `kakaolink`
+    - `kakaoplus`
+    - `kakaotalk`
+- Updated `App.tsx`:
+  - centralized WebView navigation decisions into `allow`, `external-app`, and `external-browser`
+  - kept `vanpick.app`, `www.vanpick.app`, Kakao HTTPS hosts, Toss hosts, and Supabase hosts inside the WebView
+  - sends Kakao app schemes and Android `intent://` URLs to `Linking.openURL`
+  - parses Android `intent://...S.browser_fallback_url=...` and opens the fallback URL if the app launch fails
+  - changed `originWhitelist` to `['*']` so every navigation can be handled by `onShouldStartLoadWithRequest`
+  - added sanitized navigation logs that omit OAuth query strings and codes
+- Updated `app.json`:
+  - added iOS `LSApplicationQueriesSchemes` for Kakao app schemes:
+    - `kakaokompassauth`
+    - `kakaolink`
+    - `kakaoplus`
+    - `kakaotalk`
+- Verification:
+  - `npm run typecheck` passed
+  - `npx expo-doctor` passed
+  - `npx expo config --type public` passed and showed SDK `54.0.0`
+  - restarted `npx expo start -c --lan`
+  - Metro status returned `packager-status:running`
+  - iOS JS bundle returned HTTP `200`
+- Important limitation:
+  - Expo Go may not fully apply `app.json` native scheme/query settings because those belong to the host native app.
+  - If KakaoTalk opens but does not return cleanly to the WebView in Expo Go, a development build / EAS build is likely required.
+  - No React Native Kakao SDK was added.
