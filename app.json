@@ -1,15 +1,29 @@
 {
   "expo": {
-    "name": "vanpick-app",
+    "name": "VanPick",
     "slug": "vanpick-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "vanpick",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "app.vanpick.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "사업자등록증과 차량 이미지를 촬영해 업로드할 때 카메라 접근이 필요합니다.",
+        "NSPhotoLibraryUsageDescription": "사업자등록증과 차량 이미지를 선택해 업로드할 때 사진 접근이 필요합니다.",
+        "NSPhotoLibraryAddUsageDescription": "업로드에 필요한 이미지를 사진 보관함에 저장할 때 사용됩니다."
+      }
     },
     "android": {
+      "package": "app.vanpick.mobile",
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
