@@ -236,3 +236,27 @@
   - Expo Go may not fully apply `app.json` native scheme/query settings because those belong to the host native app.
   - If KakaoTalk opens but does not return cleanly to the WebView in Expo Go, a development build / EAS build is likely required.
   - No React Native Kakao SDK was added.
+
+## 2026-05-31
+
+### Android versionCode Bump And Production AAB Build
+
+- User reported Google Play Console rejected the existing AAB because `versionCode 2` had already been used.
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Changed only Android version code in `app.json`:
+  - added `android.versionCode: 3`
+- Kept app version name unchanged:
+  - `expo.version: 1.0.0`
+- Did not change WebView URL, WebView logic, icons, splash assets, permissions, or native feature behavior.
+- Verification:
+  - `npx expo config --type public` showed `android.versionCode: 3`
+  - `npm run typecheck` passed
+  - `npx expo-doctor` passed with `18/18 checks passed`
+- Ran Android production build:
+  - `eas build -p android --profile production`
+- EAS remote app version source was enabled in `eas.json`, so EAS also incremented remote build version:
+  - `versionCode` from `2` to `3`
+  - build `appBuildVersion: 3`
+- Build result:
+  - build ID: `0e7f9de3-3c70-4d97-86a0-a31f1d803eda`
+  - AAB: `https://expo.dev/artifacts/eas/2MQGdX8thBtxSzRYPKmepy.aab`
