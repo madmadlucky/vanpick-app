@@ -13,7 +13,7 @@
     "scheme": "vanpick",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.vanpick.mobile",
       "infoPlist": {
         "NSCameraUsageDescription": "사업자등록증과 차량 이미지를 촬영해 업로드할 때 카메라 접근이 필요합니다.",
@@ -23,8 +23,13 @@
           "kakaokompassauth",
           "kakaolink",
           "kakaoplus",
+          "kakaotalk",
+          "kakaokompassauth",
+          "kakaolink",
+          "kakaoplus",
           "kakaotalk"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
