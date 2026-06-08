@@ -260,3 +260,63 @@
 - Build result:
   - build ID: `0e7f9de3-3c70-4d97-86a0-a31f1d803eda`
   - AAB: `https://expo.dev/artifacts/eas/2MQGdX8thBtxSzRYPKmepy.aab`
+
+## 2026-06-08
+
+### In-App OAuth Browser Handling For iOS App Review
+
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Checked Expo SDK 56 WebBrowser/AuthSession docs before code as requested by `AGENTS.md`.
+- Kept WebView production URL unchanged:
+  - `https://vanpick.app`
+- Added `expo-web-browser` with Expo-compatible install and app config plugin.
+- Updated `App.tsx` WebView navigation interception:
+  - detects Supabase OAuth authorize/callback URLs, `appleid.apple.com`, `kauth.kakao.com`, and `vanpick.app/auth/callback`
+  - opens OAuth URLs with `WebBrowser.openAuthSessionAsync` instead of `Linking.openURL`
+  - loads successful AuthSession return URL back into the WebView so the WebView can complete `/auth/callback`
+  - preserves existing internal VanPick navigation and non-OAuth external link handling
+- Updated `src/config.ts` with OAuth host/path constants.
+- Did not add new Apple login UI.
+- Did not change `ios.supportsTablet`.
+- Did not run `npm run build`.
+- Verification:
+  - `npm run typecheck` passed
+  - `git diff --check` passed
+- Remaining unverified items:
+  - Real Apple/Kakao login completion and WebView cookie/session persistence require device or TestFlight verification with a fresh iOS build.
+  - Because `expo-web-browser` is a native module/config plugin, a new iOS build is required.
+
+### EAS Export Script Shortcuts
+
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Checked Expo SDK 56 docs before code as requested by `AGENTS.md`.
+- Confirmed `eas.json` has a `production` build profile.
+- Confirmed Android production has no non-AAB override; EAS production Android build command remains `eas build -p android --profile production`.
+- Confirmed iOS production command remains `eas build -p ios --profile production` for App Store-ready EAS build flow.
+- Added package scripts:
+  - `npm run export:ipa`
+  - `npm run export:aab`
+- Did not modify app logic, WebView/OAuth/AuthSession code, or `app.json`.
+- Did not run any EAS build or `npm run build`.
+
+### iOS EAS Capability Sync Opt-Out Script
+
+- Updated only `package.json` export script:
+  - `export:ipa` now prefixes the iOS production EAS build command with `EXPO_NO_CAPABILITY_SYNC=1`.
+- Left `export:aab` unchanged.
+- Did not modify app logic, WebView/OAuth/AuthSession code, or `app.json`.
+- Did not run any EAS build.
+- Verification:
+  - `package.json` JSON parse passed.
+  - `git diff --check` passed.
+
+### Common Capability Sync Opt-Out For Export Scripts
+
+- Updated only `package.json` export scripts.
+- Kept `export:ipa` as `EXPO_NO_CAPABILITY_SYNC=1 eas build -p ios --profile production`.
+- Added the same `EXPO_NO_CAPABILITY_SYNC=1` prefix to `export:aab`.
+- Did not modify app logic, `App.tsx`, `src/config.ts`, `app.json`, or `eas.json`.
+- Did not run any EAS build.
+- Verification:
+  - `package.json` JSON parse passed.
+  - `git diff --check` passed.

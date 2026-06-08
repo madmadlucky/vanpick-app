@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { type ElementRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,10 @@ import {
   APP_SCHEME,
   EXTERNAL_APP_SCHEMES,
   INTERNAL_WEBVIEW_HOSTS,
+  OAUTH_BROWSER_HOSTS,
+  SUPABASE_OAUTH_PATH_SEGMENTS,
+  VANPICK_AUTH_CALLBACK_PATH,
+  VANPICK_AUTH_CALLBACK_URL,
   VANPICK_WEB_URL,
   WEBVIEW_FLOW_HOSTS,
 } from './src/config';
@@ -30,6 +35,40 @@ function parseUrlParts(url: string) {
     scheme: match?.[1]?.toLowerCase() ?? '',
     hostname: match?.[2]?.toLowerCase() ?? '',
   };
+}
+
+function getUrlPath(url: string) {
+  const pathMatch = /^[a-z][a-z0-9+.-]*:\/\/[^/?#:]*(\/[^?#]*)?/i.exec(url.trim());
+
+  return pathMatch?.[1] ?? '/';
+}
+
+function isSupabaseOAuthUrl(url: string, hostname: string) {
+  if (!hostname.endsWith('.supabase.co')) {
+    return false;
+  }
+
+  const path = getUrlPath(url);
+
+  return SUPABASE_OAUTH_PATH_SEGMENTS.some((segment) => path.includes(segment));
+}
+
+function isVanPickAuthCallbackUrl(url: string, hostname: string) {
+  return INTERNAL_WEBVIEW_HOSTS.has(hostname) && getUrlPath(url).startsWith(VANPICK_AUTH_CALLBACK_PATH);
+}
+
+function isOAuthBrowserUrl(url: string) {
+  const { scheme, hostname } = parseUrlParts(url);
+
+  if (scheme !== 'http' && scheme !== 'https') {
+    return false;
+  }
+
+  return (
+    OAUTH_BROWSER_HOSTS.has(hostname) ||
+    isSupabaseOAuthUrl(url, hostname) ||
+    isVanPickAuthCallbackUrl(url, hostname)
+  );
 }
 
 function getUrlDecision(url: string) {
@@ -91,12 +130,15 @@ function getNavigationLogLabel(url: string) {
 
 export default function App() {
   const webViewRef = useRef<WebViewRef>(null);
+  const authSessionUrlRef = useRef<string | null>(null);
+  const allowedAuthReturnUrlRef = useRef<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
+  const [webViewUri, setWebViewUri] = useState(VANPICK_WEB_URL);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const source = useMemo(() => ({ uri: VANPICK_WEB_URL }), []);
+  const source = useMemo(() => ({ uri: webViewUri }), [webViewUri]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') {
@@ -120,7 +162,56 @@ export default function App() {
     console.log('[VanPick WebView] navigation:', getNavigationLogLabel(navigationState.url));
   }, []);
 
+  const completeAuthInWebView = useCallback((url: string) => {
+    allowedAuthReturnUrlRef.current = url;
+    setErrorMessage(null);
+    setIsLoading(true);
+    setWebViewUri(url);
+    setWebViewKey((currentKey) => currentKey + 1);
+  }, []);
+
+  const openOAuthSession = useCallback(
+    async (url: string) => {
+      if (authSessionUrlRef.current === url) {
+        return;
+      }
+
+      authSessionUrlRef.current = url;
+
+      try {
+        const result = await WebBrowser.openAuthSessionAsync(url, VANPICK_AUTH_CALLBACK_URL, {
+          preferEphemeralSession: false,
+        });
+
+        if (result.type === 'success') {
+          completeAuthInWebView(result.url || VANPICK_WEB_URL);
+          return;
+        }
+
+        if (result.type !== 'cancel') {
+          completeAuthInWebView(VANPICK_WEB_URL);
+        }
+      } catch {
+        setErrorMessage('앱 내부 인증 화면을 열 수 없습니다.');
+      } finally {
+        authSessionUrlRef.current = null;
+      }
+    },
+    [completeAuthInWebView],
+  );
+
   const handleShouldStartLoad = useCallback((request: WebViewNavigation) => {
+    if (allowedAuthReturnUrlRef.current === request.url) {
+      allowedAuthReturnUrlRef.current = null;
+      return true;
+    }
+
+    if (isOAuthBrowserUrl(request.url)) {
+      console.log('[VanPick WebView] request: auth-session', getNavigationLogLabel(request.url));
+      void openOAuthSession(request.url);
+      return false;
+    }
+
     const decision = getUrlDecision(request.url);
 
     console.log('[VanPick WebView] request:', decision.action, getNavigationLogLabel(request.url));
@@ -145,11 +236,12 @@ export default function App() {
     });
 
     return false;
-  }, []);
+  }, [openOAuthSession]);
 
   const retry = useCallback(() => {
     setErrorMessage(null);
     setIsLoading(true);
+    setWebViewUri(VANPICK_WEB_URL);
     setWebViewKey((currentKey) => currentKey + 1);
   }, []);
 
