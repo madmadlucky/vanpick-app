@@ -49,8 +49,25 @@ function isSupabaseOAuthUrl(url: string, hostname: string) {
   }
 
   const path = getUrlPath(url);
+  const provider = getUrlSearchParam(url, 'provider');
+
+  if (path.includes('/auth/v1/callback')) {
+    return false;
+  }
+
+  if (path.includes('/auth/v1/authorize')) {
+    return provider !== 'kakao';
+  }
 
   return SUPABASE_OAUTH_PATH_SEGMENTS.some((segment) => path.includes(segment));
+}
+
+function getUrlSearchParam(url: string, name: string) {
+  try {
+    return new URL(url).searchParams.get(name);
+  } catch {
+    return null;
+  }
 }
 
 function isVanPickAuthCallbackUrl(url: string, hostname: string) {

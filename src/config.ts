@@ -12,7 +12,7 @@ export const WEBVIEW_FLOW_HOSTS = new Set([
   'api.tosspayments.com',
 ]);
 
-export const OAUTH_BROWSER_HOSTS = new Set(['appleid.apple.com', 'kauth.kakao.com']);
+export const OAUTH_BROWSER_HOSTS = new Set(['appleid.apple.com']);
 
 export const SUPABASE_OAUTH_PATH_SEGMENTS = ['/auth/v1/authorize', '/auth/v1/callback'];
 
