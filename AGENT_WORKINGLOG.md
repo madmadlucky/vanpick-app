@@ -310,6 +310,30 @@
   - `package.json` JSON parse passed.
   - `git diff --check` passed.
 
+## 2026-06-15
+
+### Apple Login Auth Callback Recursive Session Bug Fix
+
+- User received App Store rejection (Guideline 2.1a): Apple login sign-up failed on iPhone 17 Pro Max, iOS 26.5.1.
+- Kept work strictly inside `vanpick-app`; did not access, run, or modify sibling `../vanpick`.
+- Kept WebView production URL unchanged: `https://vanpick.app`.
+- Root cause identified from user screenshots:
+  - After Apple auth completed, `openAuthSessionAsync` returned `https://vanpick.app/auth/callback?code=...`.
+  - `completeAuthInWebView` stored the URL in `allowedAuthReturnUrlRef` and remounted the WebView.
+  - On WebView remount, `handleShouldStartLoad` performed exact string match against `allowedAuthReturnUrlRef.current`. Due to subtle URL encoding differences, the match failed.
+  - `isOAuthBrowserUrl` was then called on the callback URL; `isVanPickAuthCallbackUrl` returned `true`.
+  - This incorrectly triggered a second `openOAuthSession` call, opening a second `ASWebAuthenticationSession` browser with the auth callback URL.
+  - The callback page loaded inside that second browser (not the WebView), consuming the auth code in Safari's cookie context rather than the WebView's. The WebView had no session, showing "로그인 인증값을 밴픽 세션으로 바꾸지 못했습니다".
+- Fix applied in `App.tsx`:
+  - Removed `isVanPickAuthCallbackUrl` from `isOAuthBrowserUrl`. The auth callback URL is a VanPick host and is correctly handled as `allow` by `getUrlDecision`, so it must never trigger a new auth session.
+  - Removed now-dead `isVanPickAuthCallbackUrl` function.
+  - Removed now-unused `VANPICK_AUTH_CALLBACK_PATH` import (kept `VANPICK_AUTH_CALLBACK_URL` which is still used as the redirect URL in `openAuthSessionAsync`).
+- Verification:
+  - `npm run typecheck` passed.
+- Remaining unverified items:
+  - Requires a new iOS EAS build and TestFlight/App Store review to confirm Apple login now completes successfully end-to-end.
+  - The `ASWebAuthenticationSession` dialog shows 'Expo' as the app name rather than 'VanPick' on user's test device; this is cosmetic and expected in non-production or development builds; production App Store build should show 'VanPick'.
+
 ### Common Capability Sync Opt-Out For Export Scripts
 
 - Updated only `package.json` export scripts.

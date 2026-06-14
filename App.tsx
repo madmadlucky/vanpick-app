@@ -20,7 +20,6 @@ import {
   INTERNAL_WEBVIEW_HOSTS,
   OAUTH_BROWSER_HOSTS,
   SUPABASE_OAUTH_PATH_SEGMENTS,
-  VANPICK_AUTH_CALLBACK_PATH,
   VANPICK_AUTH_CALLBACK_URL,
   VANPICK_WEB_URL,
   WEBVIEW_FLOW_HOSTS,
@@ -70,10 +69,6 @@ function getUrlSearchParam(url: string, name: string) {
   }
 }
 
-function isVanPickAuthCallbackUrl(url: string, hostname: string) {
-  return INTERNAL_WEBVIEW_HOSTS.has(hostname) && getUrlPath(url).startsWith(VANPICK_AUTH_CALLBACK_PATH);
-}
-
 function isOAuthBrowserUrl(url: string) {
   const { scheme, hostname } = parseUrlParts(url);
 
@@ -83,8 +78,7 @@ function isOAuthBrowserUrl(url: string) {
 
   return (
     OAUTH_BROWSER_HOSTS.has(hostname) ||
-    isSupabaseOAuthUrl(url, hostname) ||
-    isVanPickAuthCallbackUrl(url, hostname)
+    isSupabaseOAuthUrl(url, hostname)
   );
 }
 
