@@ -344,3 +344,30 @@
 - Verification:
   - `package.json` JSON parse passed.
   - `git diff --check` passed.
+
+## 2026-06-16
+
+### Second App Store Rejection Investigation (Guideline 2.1a x2) — Fixed In Sibling `../vanpick` Web Project
+
+- User received a second App Store rejection with two issues:
+  1. Performance/App Completeness: Apple Sign In failed on iPad Air 11-inch (M3), iPadOS 26.5, with a generic in-app error.
+  2. Information Needed: reviewer could not complete the provided demo (Kakao) login because Kakao's "unusual login detected" security check demanded phone/email OTP verification the reviewer could not complete.
+- User explicitly authorized accessing and modifying the sibling `../vanpick` Next.js web project for this task (deviation from the usual "do not touch `../vanpick`" rule, granted per this conversation only).
+- Investigated `vanpick-app/App.tsx` and `src/config.ts` first; concluded the native WebView OAuth interception logic (`isOAuthBrowserUrl`, `handleShouldStartLoad`, `openOAuthSession`, `completeAuthInWebView`) was correct and unchanged from the 2026-06-15 fix. No native app code changes were needed this round.
+- Root-caused both issues in `../vanpick`:
+  - **False "login failed" error (the actual Apple Sign In bug):** `components/auth/login-buttons.tsx`'s `clearWhenPageReturns()` (wired to `visibilitychange`/`focus`) fired the instant the `ASWebAuthenticationSession` modal closed and the WebView became visible again — before the native app had a chance to call `completeAuthInWebView` and navigate the WebView to `/auth/callback`. Because the WebView's `window.location.href` was still the `/login` URL at that instant, the component showed `LOGIN_START_ERROR_MESSAGE` ("로그인을 완료하지 못했습니다. 다시 시도해 주세요.") even when the underlying OAuth exchange was about to succeed. This is exactly the error visible in the user's screenshot 3 and matches Apple's "unable to complete signing up with Apple" report.
+  - **Korean phone verification blocking Apple sign-up:** `app/auth/callback/route.ts` redirected any user without a `phone` on file to `/phone/verify` (Korean SMS OTP), with no exception for Apple users, even though `lib/services/vanpick.ts`'s `assertRequiredUserPhone` already exempts Apple-provider users at the profile-sync step. Apple App Review reviewers cannot complete Korean SMS verification, so even a successful Apple Sign In would dead-end here.
+  - Kakao's "unusual login detected" OTP screen (screenshot 2) is a Kakao-side security control with no app/server-side bypass available; not fixed in code. Recommended replying to Apple's resolution center asking them to retest using Apple Sign In only (Kakao login is geo/device-restricted for unusual-login security reasons outside developer control).
+- Fix applied in `../vanpick/components/auth/login-buttons.tsx`:
+  - Wrapped the `resetLoadingWithError()` call inside `clearWhenPageReturns()` in a 600ms `setTimeout`, re-checking `pendingKeyRef.current` and `window.location.href === startHrefRef.current` after the delay. If the native app's `completeAuthInWebView` already remounted the WebView (destroying the JS context and its pending timers) within that window, the error never fires. If the user genuinely cancelled or the OAuth flow stalled, the error still shows after the short delay.
+- Fix applied in `../vanpick/app/auth/callback/route.ts`:
+  - Added `isAppleUser` check (`requestedProvider === "apple" || user.app_metadata?.provider === "apple"`) and added `&& !isAppleUser` to the phone-verification redirect condition (previously `!profile?.phone && !canBypassRequiredPhoneForReview(user)`). Apple Sign In users without a phone number on file now skip the `/phone/verify` redirect entirely at sign-up and proceed straight to the terms/agreements check (or directly to `next` if agreements are already on file).
+  - Decision confirmed with user via AskUserQuestion: Apple users skip phone verification at signup only; `assertServicePhoneVerified` and other phone gates elsewhere in `lib/services/vanpick.ts` are unchanged, so phone is still required before Apple users can use phone-gated features (e.g. submitting a request, driver actions).
+- Verification:
+  - `(cd ../vanpick && npx tsc --noEmit -p tsconfig.json)` exited `0`, no type errors.
+  - Did not run the Next.js dev server, lint, or any test suite in `../vanpick` (out of scope for this task; user only asked for the targeted bug fix).
+  - Did not modify anything in `vanpick-app` (this native shell project) — no new EAS build is required for this round, only a `../vanpick` web deploy.
+- Remaining unverified items:
+  - Real-device end-to-end Apple Sign In retest (ideally on an iPad) after `../vanpick` is deployed was not performed in this environment.
+  - Whether Apple's reviewer will accept "test with Apple Sign In only" as a resolution for the Kakao OTP issue is pending Apple's response; no further code-level mitigation exists for Kakao's own unusual-login security check.
+  - `PHONE_BYPASS_EMAILS` env var (used by `canBypassRequiredPhoneForReview`) was not changed; not needed now that Apple users bypass phone verification by provider rather than by allow-listed email.
