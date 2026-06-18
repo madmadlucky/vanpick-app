@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "app.vanpick.mobile",
-      "versionCode": 4,
+      "versionCode": 7,
       "permissions": [
         "INTERNET",
         "CAMERA"
