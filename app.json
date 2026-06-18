@@ -37,9 +37,7 @@
       "versionCode": 4,
       "permissions": [
         "INTERNET",
-        "CAMERA",
-        "READ_MEDIA_IMAGES",
-        "READ_EXTERNAL_STORAGE"
+        "CAMERA"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
