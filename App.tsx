@@ -55,7 +55,7 @@ function isSupabaseOAuthUrl(url: string, hostname: string) {
   }
 
   if (path.includes('/auth/v1/authorize')) {
-    return provider !== 'kakao';
+    return false;
   }
 
   return SUPABASE_OAUTH_PATH_SEGMENTS.some((segment) => path.includes(segment));
@@ -191,7 +191,7 @@ export default function App() {
 
       try {
         const result = await WebBrowser.openAuthSessionAsync(url, VANPICK_AUTH_CALLBACK_URL, {
-          preferEphemeralSession: false,
+          preferEphemeralSession: true,
         });
 
         if (result.type === 'success') {
@@ -269,6 +269,7 @@ export default function App() {
           allowsBackForwardNavigationGestures
           allowsInlineMediaPlayback
           javaScriptEnabled
+          injectedJavaScriptBeforeContentLoaded="window.__VANPICK_NATIVE_APP__=true;"
           domStorageEnabled
           mediaPlaybackRequiresUserAction={false}
           mixedContentMode="compatibility"
